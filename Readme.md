@@ -2,15 +2,19 @@
 
 ## Development
 
-Make sure you have a working Go environment, for further reference or a guide take a look at the [install instructions](http://golang.org/doc/install.html). This project requires Go >= v1.13.
+To run this project on binary mode":
 
 ```console
-git clone https://github.com/refs/pman.git
-cd pman
-
 go install
+pman // after this, the rpc service is ready to receive messages
+```
 
-pman
+on a different terminal session:
+
+```console
+pman --run phoenix
+pman --run konnectd
+pman --run proxy
 ```
 
 ## Security
