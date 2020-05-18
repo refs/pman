@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/rpc"
 
-	"github.com/refs/pman/pkg/controller"
 	"github.com/refs/pman/pkg/process"
 	"github.com/refs/pman/pkg/service"
 )
@@ -63,8 +62,6 @@ func main() {
 			log.Fatal(err)
 		}
 	} else {
-		service.Start(
-			controller.WithBinary("ocis"), // Use case: binary rename.
-		)
+		service.Start()
 	}
 }

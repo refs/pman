@@ -48,7 +48,7 @@ func (s *Service) Kill(args *string, reply *int) error {
 }
 
 // Start an rpc service with a registered configurable Controller process.
-func Start(opts ...controller.Option) error {
+func Start() error {
 	c := controller.NewController()
 	s := &Service{
 		Controller: c,
