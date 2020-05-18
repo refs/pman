@@ -16,6 +16,7 @@ var (
 	l       = flag.Bool("l", false, "list running extensions")
 )
 
+// This is an example program on how to use a service.
 func main() {
 	flag.Parse()
 	if *l {
