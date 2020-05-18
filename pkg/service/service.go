@@ -63,6 +63,7 @@ func Start() error {
 	done := make(chan struct{}, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
+	// shutdown controller if interrupted.
 	go func(c controller.Controller) {
 		_ = <-sigs
 		fmt.Println("gracefully terminating children")
@@ -70,13 +71,10 @@ func Start() error {
 		os.Exit(0)
 	}(c)
 
-	// Publish Controller port onto a runtime file? Or use a preconfigured port?
-	// Running with preconfigured port for the time being
-
 	l, e := net.Listen("tcp", ":10666")
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
-	print("runtime rpc server listening on address: localhost:10666\n")
+	fmt.Println("runtime ready on `localhost:10666`")
 	return http.Serve(l, nil)
 }

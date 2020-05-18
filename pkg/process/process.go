@@ -7,12 +7,8 @@ import (
 
 // ProcEntry is an entry in the File db.
 type ProcEntry struct {
-	Args []string
-
-	// Set a posteriori.
-	Pid int
-
-	// Set a posteriori.
+	Args      []string
+	Pid       int
 	Extension string
 }
 
