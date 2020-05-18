@@ -2,7 +2,7 @@
 
 ## Development
 
-To run this project on binary mode":
+To run this project on binary mode:
 
 ```console
 go install
