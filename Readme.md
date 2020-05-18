@@ -15,6 +15,23 @@ on a different terminal session:
 pman --run phoenix
 pman --run konnectd
 pman --run proxy
+
+pman --l
+
++-----------+-------+
+| EXTENSION |  PID  |
++-----------+-------+
+| konnectd  | 39950 |
+| phoenix   | 39899 |
++-----------+-------+
+
+pman --kill phoenix
+
++-----------+-------+
+| EXTENSION |  PID  |
++-----------+-------+
+| konnectd  | 39950 |
++-----------+-------+
 ```
 
 ## Security
