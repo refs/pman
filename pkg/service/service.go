@@ -77,5 +77,6 @@ func Start(opts ...controller.Option) error {
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
+	print("runtime rpc server listening on address: localhost:10666\n")
 	return http.Serve(l, nil)
 }
