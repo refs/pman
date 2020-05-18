@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/refs/pacman/pkg/process"
+	"github.com/refs/pman/pkg/process"
 )
 
 // Watcher watches a process.

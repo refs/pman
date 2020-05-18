@@ -7,9 +7,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 
-	"github.com/refs/pacman/pkg/process"
-	"github.com/refs/pacman/pkg/watcher"
+	"github.com/refs/pman/pkg/process"
+	"github.com/refs/pman/pkg/watcher"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 // Controller writes the current managed processes onto a file, or any ReadWrite.
@@ -26,7 +30,7 @@ type Controller struct {
 }
 
 var (
-	defaultFile = "/var/tmp/.pacman"
+	defaultFile = "/var/tmp/.pman"
 )
 
 // NewController initializes a new controller.
@@ -139,8 +143,25 @@ func (c *Controller) Shutdown(ch chan struct{}) error {
 }
 
 // List managed processes.
-func (c *Controller) List() error {
-	return nil
+func (c *Controller) List() string {
+	tableString := &strings.Builder{}
+	table := tablewriter.NewWriter(tableString)
+
+	table.SetHeader([]string{"Extension", "PID"})
+	fd, err := ioutil.ReadFile(c.File)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	entries := make(map[string]int)
+	json.Unmarshal(fd, &entries)
+
+	for extension, pid := range entries {
+		table.Append([]string{extension, strconv.Itoa(pid)})
+	}
+
+	table.Render()
+	return tableString.String()
 }
 
 // Reset clears the db file.

@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/refs/pacman/pkg/controller"
-	"github.com/refs/pacman/pkg/process"
+	"github.com/refs/pman/pkg/controller"
+	"github.com/refs/pman/pkg/process"
 )
 
 // Service represents a RPC service. It wraps a Controller.
@@ -27,6 +27,12 @@ func (s *Service) Start(args process.ProcEntry, reply *int) error {
 	}
 
 	*reply = 0
+	return nil
+}
+
+// List running processes for the controller.
+func (s *Service) List(args struct{}, reply *string) error {
+	*reply = s.Controller.List()
 	return nil
 }
 
