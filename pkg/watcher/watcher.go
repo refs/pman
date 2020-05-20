@@ -21,7 +21,7 @@ func NewWatcher() Watcher {
 func (w *Watcher) Follow(pe process.ProcEntry) {
 	state := make(chan *os.ProcessState, 1)
 
-	fmt.Printf("watching [%v]...\n", pe.Pid)
+	fmt.Printf("watching %v\n", pe.Extension)
 	go func() {
 		ps, err := watch(pe.Pid)
 		if err != nil {
@@ -34,7 +34,7 @@ func (w *Watcher) Follow(pe process.ProcEntry) {
 	go func() {
 		select {
 		case status := <-state:
-			fmt.Printf("process `%v` exited with code: `%v`\n", pe.Pid, status.ExitCode())
+			fmt.Printf("process [%v] exited with code: %v\n", pe.Extension, status.ExitCode())
 		}
 	}()
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -103,7 +104,7 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 
 // Kill a managed process.
 func (c *Controller) Kill(ext *string) error {
-	pid, err := c.pidFromName(ext)
+	pid, err := c.pidFromName(*ext)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func (c *Controller) Kill(ext *string) error {
 		return err
 	}
 
-	fmt.Printf("killing `%v`...\n", pid)
+	fmt.Printf("killing %v\n", *ext)
 	return p.Kill()
 }
 
@@ -127,8 +128,7 @@ func (c *Controller) Shutdown(ch chan struct{}) error {
 	json.Unmarshal(fd, &entries)
 
 	for cmd, pid := range entries {
-		fmt.Printf("gracefully shutting down process `%v` with pid `[%v]`...\n", cmd, pid)
-		// swallow errors
+		fmt.Printf("gracefully shutting down %v\n", cmd)
 		p, _ := os.FindProcess(pid)
 		p.Kill()
 	}
@@ -156,8 +156,15 @@ func (c *Controller) List() string {
 	entries := make(map[string]int)
 	json.Unmarshal(fd, &entries)
 
-	for extension, pid := range entries {
-		table.Append([]string{extension, strconv.Itoa(pid)})
+	keys := make([]string, 0, len(entries))
+	for k := range entries {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, v := range keys {
+		table.Append([]string{v, strconv.Itoa(entries[v])})
 	}
 
 	table.Render()
@@ -170,7 +177,7 @@ func (c *Controller) Reset() error {
 }
 
 // pidFromName reads from controller's db for the extension name, and returns it's pid for the running process.
-func (c *Controller) pidFromName(name *string) (int, error) {
+func (c *Controller) pidFromName(name string) (int, error) {
 	fd, err := ioutil.ReadFile(c.File)
 	if err != nil {
 		return 0, err
@@ -179,12 +186,12 @@ func (c *Controller) pidFromName(name *string) (int, error) {
 	entries := make(map[string]int)
 	json.Unmarshal(fd, &entries)
 
-	pid, ok := entries[*name]
+	pid, ok := entries[name]
 	if !ok {
-		return 0, fmt.Errorf("pid for extension `%v` not found", *name)
+		return 0, fmt.Errorf("pid for extension `%v` not found", name)
 	}
 
-	delete(entries, *name)
+	delete(entries, name)
 	c.writeEntries(entries)
 
 	return pid, nil
