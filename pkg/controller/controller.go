@@ -78,18 +78,13 @@ func (c *Controller) Write(pe process.ProcEntry) error {
 	json.Unmarshal(fd, &entries)
 
 	entries[pe.Extension] = pe.Pid
-	if err := c.writeEntries(entries); err != nil {
-		return err
-	}
-
-	return nil
+	return c.writeEntries(entries)
 }
 
 // Start and watches a process.
 func (c *Controller) Start(pe process.ProcEntry) error {
 	w := watcher.NewWatcher()
 	if err := pe.Start(c.BinPath); err != nil {
-		print("erroring")
 		return err
 	}
 
@@ -203,9 +198,5 @@ func (c *Controller) writeEntries(e map[string]int) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(c.File, bytes, 0644); err != nil {
-		return err
-	}
-
-	return nil
+	return ioutil.WriteFile(c.File, bytes, 0644)
 }
