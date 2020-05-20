@@ -36,7 +36,7 @@ pman --kill phoenix
 
 ## Security
 
-If you find a security issue please contact <hello@zyxan.io> first.
+If you find a security issue please contact [hello@zyxan.io](mailto:hello@zyxan.io) first.
 
 ## Contributing
 
