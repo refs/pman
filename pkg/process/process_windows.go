@@ -1,11 +1,9 @@
-// +build !windows
+// +build windows
 
 package process
 
 import (
 	"os"
-
-	sys "golang.org/x/sys/unix"
 )
 
 // ProcEntry is an entry in the File db.
@@ -34,9 +32,7 @@ func (e *ProcEntry) Start(binPath string) error {
 			os.Stdout,
 			os.Stderr,
 		},
-		Sys: &sys.SysProcAttr{
-			Setpgid: true,
-		},
+		// TODO for security reasons we might want to set PGID on Windows.
 	})
 	if err != nil {
 		return err
