@@ -13,13 +13,15 @@ type ProcEntry struct {
 	Args      []string
 	Pid       int
 	Extension string
+	Env       []string
 }
 
 // NewProcEntry returns a new ProcEntry.
-func NewProcEntry(extension string, args ...string) ProcEntry {
+func NewProcEntry(extension string, env []string, args ...string) ProcEntry {
 	return ProcEntry{
 		Extension: extension,
 		Args:      args,
+		Env:       env,
 	}
 }
 
@@ -34,6 +36,7 @@ func (e *ProcEntry) Start(binPath string) error {
 			os.Stdout,
 			os.Stderr,
 		},
+		Env: e.Env,
 		Sys: &sys.SysProcAttr{
 			Setpgid: true,
 		},
