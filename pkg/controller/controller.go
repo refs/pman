@@ -4,15 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
+	golog "log"
 	"os"
 	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
 	"github.com/refs/pman/pkg/watcher"
+	"github.com/rs/zerolog"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -28,6 +30,8 @@ type Controller struct {
 	// BinPath is the ocis single binary path withing the host machine.
 	// The Controller needs to know the binary location in order to spawn new extensions.
 	BinPath string
+
+	log zerolog.Logger
 }
 
 var (
@@ -39,9 +43,12 @@ func NewController(o ...Option) Controller {
 	c := Controller{
 		Bin:  "ocis",
 		File: defaultFile,
+		log: log.NewLogger(
+			log.WithPretty(true),
+		),
 	}
 
-	opts := Options{}
+	opts := &Options{}
 
 	for _, f := range o {
 		f(opts)
@@ -54,14 +61,14 @@ func NewController(o ...Option) Controller {
 	// Get binary location from $PATH lookup. If not present, it uses arg[0] as entry point.
 	path, err := exec.LookPath(c.Bin)
 	if err != nil {
-		log.Print("oCIS binary not present on `$PATH`")
+		golog.Print("oCIS binary not present on `$PATH`")
 		path = os.Args[0]
 	}
 
 	c.BinPath = path
 
 	if _, err := os.Stat(defaultFile); err != nil {
-		fmt.Printf("db file doesn't exist, creating one with contents: `{}`\n")
+		c.log.Info().Str("package", "watcher").Msgf("db file doesn't exist, creating one with contents: `{}`")
 		ioutil.WriteFile(defaultFile, []byte("{}"), 0644)
 	}
 
@@ -109,7 +116,7 @@ func (c *Controller) Kill(ext *string) error {
 		return err
 	}
 
-	fmt.Printf("killing %v\n", *ext)
+	c.log.Info().Str("package", "watcher").Msgf("terminating %v", *ext)
 	return p.Kill()
 }
 
@@ -124,7 +131,7 @@ func (c *Controller) Shutdown(ch chan struct{}) error {
 	json.Unmarshal(fd, &entries)
 
 	for cmd, pid := range entries {
-		fmt.Printf("gracefully shutting down %v\n", cmd)
+		c.log.Info().Str("package", "watcher").Msgf("gracefully terminating %v", cmd)
 		p, _ := os.FindProcess(pid)
 		p.Kill()
 	}
@@ -146,7 +153,7 @@ func (c *Controller) List() string {
 	table.SetHeader([]string{"Extension", "PID"})
 	fd, err := ioutil.ReadFile(c.File)
 	if err != nil {
-		log.Fatal(err)
+		c.log.Fatal().Err(err)
 	}
 
 	entries := make(map[string]int)

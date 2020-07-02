@@ -11,9 +11,9 @@ import (
 // ProcEntry is an entry in the File db.
 type ProcEntry struct {
 	Args      []string
+	Env       []string
 	Pid       int
 	Extension string
-	Env       []string
 }
 
 // NewProcEntry returns a new ProcEntry.

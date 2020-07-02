@@ -8,10 +8,10 @@ import (
 
 // ProcEntry is an entry in the File db.
 type ProcEntry struct {
-	Pid       int
-	Extension string
 	Args      []string
 	Env       []string
+	Pid       int
+	Extension string
 }
 
 // NewProcEntry returns a new ProcEntry.
@@ -35,7 +35,6 @@ func (e *ProcEntry) Start(binPath string) error {
 			os.Stderr,
 		},
 		Env: e.Env,
-		// TODO for security reasons we might want to set PGID on Windows.
 	})
 	if err != nil {
 		return err

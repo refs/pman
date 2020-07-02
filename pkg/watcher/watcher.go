@@ -1,31 +1,35 @@
 package watcher
 
 import (
-	"fmt"
-	"log"
+	golog "log"
 	"os"
 
+	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
+	"github.com/rs/zerolog"
 )
 
 // Watcher watches a process.
 type Watcher struct {
+	log zerolog.Logger
 }
 
 // NewWatcher initializes a watcher.
 func NewWatcher() Watcher {
-	return Watcher{}
+	return Watcher{
+		log: log.NewLogger(log.WithPretty(true)),
+	}
 }
 
 // Follow a process until it dies.
 func (w *Watcher) Follow(pe process.ProcEntry) {
 	state := make(chan *os.ProcessState, 1)
 
-	fmt.Printf("watching %v\n", pe.Extension)
+	w.log.Debug().Str("package", "watcher").Msgf("watching %v", pe.Extension)
 	go func() {
 		ps, err := watch(pe.Pid)
 		if err != nil {
-			log.Fatal(err)
+			golog.Fatal(err)
 		}
 
 		state <- ps
@@ -34,7 +38,7 @@ func (w *Watcher) Follow(pe process.ProcEntry) {
 	go func() {
 		select {
 		case status := <-state:
-			fmt.Printf("process [%v] exited with code: %v\n", pe.Extension, status.ExitCode())
+			w.log.Info().Str("package", "watcher").Msgf("%v exited with code: %v", pe.Extension, status.ExitCode())
 		}
 	}()
 }
