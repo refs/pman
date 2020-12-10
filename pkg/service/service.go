@@ -25,7 +25,10 @@ type Service struct {
 // NewService returns a configured service with a controller and a default logger.
 func NewService(options ...log.Option) *Service {
 	return &Service{
-		Controller: controller.NewController(),
+		Controller: controller.NewController(
+			controller.WithRestart(true), // TODO read this option from config
+			controller.WithGrace(5),
+		),
 		Log:        log.NewLogger(options...),
 	}
 }
@@ -60,7 +63,10 @@ func (s *Service) Kill(args *string, reply *int) error {
 
 // Start an rpc service with a registered configurable Controller process.
 func Start() error {
-	s := NewService(log.WithPretty(true))
+	s := NewService(
+		log.WithPretty(true),
+
+		)
 
 	if err := rpc.Register(s); err != nil {
 		s.Log.Fatal().Err(err)
