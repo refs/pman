@@ -1,11 +1,13 @@
 package service
 
 import (
+	"github.com/refs/pman/pkg/cmd"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/refs/pman/pkg/controller"
@@ -22,12 +24,24 @@ type Service struct {
 	Log        zerolog.Logger
 }
 
+// loadFromEnv would set cmd global variables. This is a workaround spf13/viper since pman used as a library does not
+// parse flags.
+func loadFromEnv() {
+	cmd.KeepAlive = parseKeepAlive()
+}
+
+func parseKeepAlive() bool {
+	rawKeepAlive := os.Getenv("RUNTIME_KEEP_ALIVE")
+	val, _ := strconv.ParseBool(rawKeepAlive)
+	return val
+}
+
 // NewService returns a configured service with a controller and a default logger.
 func NewService(options ...log.Option) *Service {
+	loadFromEnv()
 	return &Service{
 		Controller: controller.NewController(
-			controller.WithRestart(true), // TODO read this option from config
-			controller.WithGrace(5),
+			controller.WithRestart(cmd.KeepAlive),
 		),
 		Log:        log.NewLogger(options...),
 	}
