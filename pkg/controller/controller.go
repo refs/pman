@@ -69,7 +69,7 @@ func NewController(o ...Option) Controller {
 	// Get binary location from $PATH lookup. If not present, it uses arg[0] as entry point.
 	path, err := exec.LookPath(c.Bin)
 	if err != nil {
-		c.log.Debug().Msg("oCIS binary not present in PATH, using Args[0]")
+		c.log.Debug().Msg("OCIS binary not present in PATH, using Args[0]")
 		path = os.Args[0]
 	}
 
