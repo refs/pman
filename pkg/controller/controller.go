@@ -26,9 +26,9 @@ type Controller struct {
 	log zerolog.Logger
 	// File refers to the Controller database, where we keep the controller's status. It formats as json.
 	File string
-	// Bin is the ocis single binary name.
+	// Bin is the OCIS single binary name.
 	Bin string
-	// BinPath is the ocis single binary path withing the host machine.
+	// BinPath is the OCIS single binary path withing the host machine.
 	// The Controller needs to know the binary location in order to spawn new extensions.
 	BinPath string
 	// Terminated is a bidirectional channel that tallows communication from Watcher <-> Controller. Writes to this

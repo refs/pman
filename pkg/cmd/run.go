@@ -10,7 +10,6 @@ import (
 	"github.com/refs/pman/pkg/config"
 	"github.com/refs/pman/pkg/process"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Run an extension.
@@ -19,17 +18,6 @@ func Run(cfg *config.Config) *cobra.Command {
 		Use:   "run",
 		Short: "Run an extension.",
 		Args:  cobra.MinimumNArgs(1),
-		PreRun: func(cmd *cobra.Command, args []string) {
-			hostname := viper.GetString("hostname")
-			if hostname != "" {
-				cfg.Hostname = hostname
-			}
-
-			port := viper.GetString("port")
-			if port != "" {
-				cfg.Port = port
-			}
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := rpc.DialHTTP("tcp", net.JoinHostPort(cfg.Hostname, cfg.Port))
 			if err != nil {

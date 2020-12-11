@@ -8,7 +8,6 @@ import (
 
 	"github.com/refs/pman/pkg/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Kill an extension.
@@ -18,17 +17,6 @@ func Kill(cfg *config.Config) *cobra.Command {
 		Aliases: []string{"k"},
 		Short:   "Kill a running extensions.",
 		Args:    cobra.MinimumNArgs(1),
-		PreRun: func(cmd *cobra.Command, args []string) {
-			hostname := viper.GetString("hostname")
-			if hostname != "" {
-				cfg.Hostname = hostname
-			}
-
-			port := viper.GetString("port")
-			if port != "" {
-				cfg.Port = port
-			}
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := rpc.DialHTTP("tcp", net.JoinHostPort(cfg.Hostname, cfg.Port))
 			if err != nil {
