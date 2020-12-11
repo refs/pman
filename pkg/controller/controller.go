@@ -104,6 +104,7 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 	var pid int
 
 	if pid, err = c.storedPID(pe.Extension); pid != 0 {
+		c.log.Debug().Msg(fmt.Sprintf("extension already running: %s", pe.Extension))
 		return nil
 	}
 	if err != nil {

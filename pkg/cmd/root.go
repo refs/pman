@@ -25,11 +25,6 @@ func RootCmd(cfg *config.Config) *cobra.Command {
 
 	viper.BindPFlag("hostname", rootCmd.PersistentFlags().Lookup("hostname"))
 	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))
-	viper.BindPFlag("keep-alive", rootCmd.PersistentFlags().Lookup("keep-alive"))
-
-	viper.AutomaticEnv()
-	viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
-	viper.BindEnv("file", "RUNTIME_DB_FILE")
 
 	rootCmd.AddCommand(List(cfg))
 	rootCmd.AddCommand(Run(cfg))
