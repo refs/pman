@@ -238,11 +238,7 @@ func (c *Controller) delete(name string) error {
 
 	c.m.RLock()
 	defer c.m.RUnlock()
-	if err := c.writeEntries(entries); err != nil {
-		return err
-	}
-
-	return nil
+	return c.writeEntries(entries)
 }
 
 // storedPID reads from controller's db for the extension name, and returns it's pid for the running process.
