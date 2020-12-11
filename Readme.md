@@ -4,37 +4,30 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/refs/pman.svg)](https://pkg.go.dev/github.com/refs/pman)
 [![Release](https://img.shields.io/github/release/refs/pman.svg?style=flat-square)](https://github.com/refs/pman/releases/latest)
 
-## Development
+Pman is a slim utility library for supervising long-running processes. It can be [embedded](https://github.com/owncloud/ocis/blob/ea2a2b328e7261ed72e65adf48359c0a44e14b40/ocis/pkg/runtime/runtime.go#L84) or used as a cli command.
 
-To run this project on binary mode:
+When used as a CLI command it relays actions to a running runtime.
 
-```console
-go install
-pman // after this, the rpc service is ready to receive messages
+## Usage
+
+Start a runtime
+
+```go
+package main
+import "github.com/refs/pman/pkg/service"
+
+func main() {
+    service.Start()    
+}
 ```
+![start runtime](https://imgur.com/F67hgQk.gif)
 
-on a different terminal session:
-
-```console
-pman run phoenix
-pman run konnectd
-pman run proxy
-
-pman list
-
-+--------------------------+-------+
-|        EXTENSION         |  PID  |
-+--------------------------+-------+
-| konnectd                 | 67556 |
-| phoenix                  | 67537 |
-| proxy                    | 67535 |
-+--------------------------+-------+
-
-```
+Start sending messages
+![message runtime](https://imgur.com/O71RlsJ.gif)
 
 ## Security
 
-If you find a security issue please contact [hello@zyxan.io](mailto:hello@zyxan.io) first.
+If you find a security issue please contact [hello@zyxan.io](mailto:hello@zyxan.io) ffirst.
 
 ## Contributing
 
