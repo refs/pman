@@ -1,15 +1,15 @@
 package service
 
 import (
-	"github.com/refs/pman/pkg/cmd"
+	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
+	"github.com/refs/pman/pkg/config"
 	"github.com/refs/pman/pkg/controller"
 	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
@@ -19,6 +19,8 @@ import (
 // Service represents a RPC service.
 // The controller manager the service's state. When an action on a service is required,
 // this will read the PID from the DB file for the given extensions and act upon its PID.
+// This package would act as a root command of sorts, since PMAN having 2 operational modes, as a
+// cli tool and a library.
 type Service struct {
 	Controller controller.Controller
 	Log        zerolog.Logger
@@ -26,28 +28,38 @@ type Service struct {
 
 // loadFromEnv would set cmd global variables. This is a workaround spf13/viper since pman used as a library does not
 // parse flags.
-func loadFromEnv() {
-	cmd.KeepAlive = parseKeepAlive()
-}
+func loadFromEnv(cfg *config.Config) {
+	viper.AutomaticEnv()
 
-func parseKeepAlive() bool {
-	rawKeepAlive := os.Getenv("RUNTIME_KEEP_ALIVE")
-	val, _ := strconv.ParseBool(rawKeepAlive)
-	return val
+	_ = viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
+	_ = viper.BindEnv("file", "RUNTIME_DB_FILE")
+
+	cfg.KeepAlive = viper.GetBool("keep-alive")
+
+	if viper.GetString("file") != "" {
+		cfg.File = viper.GetString("file")
+	}
 }
 
 // NewService returns a configured service with a controller and a default logger.
+// When used as a library, flags are not parsed, and in order to avoid introducing a global state with init functions
+// calls are done explicitly to loadFromEnv(*config.Config).\
+// Since this is the public constructor, options need to be added, at the moment only logging options
+// are supported in order to match the running OwnCloud services structured log.
 func NewService(options ...log.Option) *Service {
-	loadFromEnv()
+	cfg := config.NewConfig()
+	loadFromEnv(cfg)
+
 	return &Service{
 		Controller: controller.NewController(
-			controller.WithRestart(cmd.KeepAlive),
+			controller.WithRestart(cfg.KeepAlive),
+			controller.WithFile(cfg.File),
 		),
 		Log:        log.NewLogger(options...),
 	}
 }
 
-// Start a process
+// Start indicates the Service Controller to start a new supervised service as an OS thread.
 func (s *Service) Start(args process.ProcEntry, reply *int) error {
 	if err := s.Controller.Start(args); err != nil {
 		*reply = 1
@@ -58,13 +70,14 @@ func (s *Service) Start(args process.ProcEntry, reply *int) error {
 	return nil
 }
 
-// List running processes for the controller.
+// List running processes for the Service Controller.
 func (s *Service) List(args struct{}, reply *string) error {
 	*reply = s.Controller.List()
 	return nil
 }
 
-// Kill a process
+// Kill a supervised process by subcommand name.
+// TODO this API is rather simple and prone to failure. Terminate a process by PID MUST be allowed.
 func (s *Service) Kill(args *string, reply *int) error {
 	if err := s.Controller.Kill(args); err != nil {
 		*reply = 1
@@ -77,10 +90,7 @@ func (s *Service) Kill(args *string, reply *int) error {
 
 // Start an rpc service with a registered configurable Controller process.
 func Start() error {
-	s := NewService(
-		log.WithPretty(true),
-
-		)
+	s := NewService(log.WithPretty(true))
 
 	if err := rpc.Register(s); err != nil {
 		s.Log.Fatal().Err(err)

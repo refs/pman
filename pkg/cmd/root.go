@@ -29,6 +29,7 @@ func RootCmd(cfg *config.Config) *cobra.Command {
 
 	viper.AutomaticEnv()
 	viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
+	viper.BindEnv("file", "RUNTIME_DB_FILE")
 
 	rootCmd.AddCommand(List(cfg))
 	rootCmd.AddCommand(Run(cfg))

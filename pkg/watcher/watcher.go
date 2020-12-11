@@ -21,7 +21,7 @@ func NewWatcher() Watcher {
 	}
 }
 
-// Follow a process until it dies.
+// Follow a process until it dies. If restart is enabled, a new fork of the original process will be automatically spawned.
 func (w *Watcher) Follow(pe process.ProcEntry, followerChan chan process.ProcEntry, restart bool) {
 	state := make(chan *os.ProcessState, 1)
 
