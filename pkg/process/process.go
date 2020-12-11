@@ -44,7 +44,6 @@ func (e *ProcEntry) Start(binPath string) error {
 	if err != nil {
 		return err
 	}
-
 	e.Pid = p.Pid
 
 	return nil

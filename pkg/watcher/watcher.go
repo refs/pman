@@ -21,8 +21,8 @@ func NewWatcher() Watcher {
 	}
 }
 
-// Follow a process until it dies.
-func (w *Watcher) Follow(pe process.ProcEntry) {
+// Follow a process until it dies. If restart is enabled, a new fork of the original process will be automatically spawned.
+func (w *Watcher) Follow(pe process.ProcEntry, followerChan chan process.ProcEntry, restart bool) {
 	state := make(chan *os.ProcessState, 1)
 
 	w.log.Debug().Str("package", "watcher").Msgf("watching %v", pe.Extension)
@@ -39,6 +39,9 @@ func (w *Watcher) Follow(pe process.ProcEntry) {
 		select {
 		case status := <-state:
 			w.log.Info().Str("package", "watcher").Msgf("%v exited with code: %v", pe.Extension, status.ExitCode())
+			if restart {
+				followerChan <- pe
+			}
 		}
 	}()
 }

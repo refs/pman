@@ -14,12 +14,14 @@ var (
 
 	Hostname string
 	Port     string
+	KeepAlive  bool
 )
 
 // RootCmd returns a configured root command.
 func RootCmd(cfg *config.Config) *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&Hostname, "hostname", "n", "", "host with a running ocis runtime.")
 	rootCmd.PersistentFlags().StringVarP(&Port, "port", "p", "", "port to send messages to the rpc ocis runtime.")
+	rootCmd.PersistentFlags().BoolVarP(&KeepAlive, "keep-alive", "k", false, "restart supervised processes that abruptly die.")
 
 	viper.BindPFlag("hostname", rootCmd.PersistentFlags().Lookup("hostname"))
 	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))
