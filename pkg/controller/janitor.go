@@ -38,10 +38,7 @@ func (j *janitor) run() {
 // the only way to update pman's database is by polling.
 func cleanup(f string, m *sync.RWMutex) {
 	m.Lock()
-	entries, err := loadDB(f)
-	if err != nil {
-		//return err
-	}
+	entries, _ := loadDB(f)
 	m.Unlock()
 
 	m.RLock()
@@ -55,10 +52,7 @@ func cleanup(f string, m *sync.RWMutex) {
 		}
 	}
 
-	bytes, err := json.Marshal(entries)
-	if err != nil {
-		//return err
-	}
+	bytes, _ := json.Marshal(entries)
 
 	_ = ioutil.WriteFile(f, bytes, 0644)
 	m.RUnlock()
