@@ -25,6 +25,52 @@ func main() {
 Start sending messages
 ![message runtime](https://imgur.com/O71RlsJ.gif)
 
+## Example
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/refs/pman/pkg/process"
+	"github.com/refs/pman/pkg/service"
+	"github.com/rs/zerolog/log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
+func main() {
+	s := service.NewService()
+	var c = make(chan os.Signal, 1)
+	var o int
+
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	if err := s.Start(process.NewProcEntry("ocs", nil, "ocs"), &o); err != nil {
+		os.Exit(1)
+	}
+
+	time.AfterFunc(3*time.Second, func() {
+		var acc = "ocs"
+		fmt.Printf(fmt.Sprintf("shutting down service: %s", acc))
+		if err := s.Controller.Kill(&acc); err != nil {
+			log.Fatal()
+		}
+		os.Exit(0)
+	})
+
+	for {
+		select {
+		case <-c:
+			return
+		}
+	}
+}
+```
+
+Run the above example with `RUNTIME_KEEP_ALIVE=true` and with no `RUNTIME_KEEP_ALIVE` set to see its behavior.
+
 ## Security
 
 If you find a security issue please contact [hello@zyxan.io](mailto:hello@zyxan.io) ffirst.
