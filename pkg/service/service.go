@@ -1,19 +1,19 @@
 package service
 
 import (
+	"github.com/refs/pman/pkg/config"
+	"github.com/refs/pman/pkg/controller"
+	"github.com/refs/pman/pkg/log"
+	"github.com/refs/pman/pkg/process"
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
+	golog "log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/refs/pman/pkg/config"
-	"github.com/refs/pman/pkg/controller"
-	"github.com/refs/pman/pkg/log"
-	"github.com/refs/pman/pkg/process"
-	"github.com/rs/zerolog"
 )
 
 // Service represents a RPC service.
@@ -28,7 +28,8 @@ type Service struct {
 
 // loadFromEnv would set cmd global variables. This is a workaround spf13/viper since pman used as a library does not
 // parse flags.
-func loadFromEnv(cfg *config.Config) {
+func loadFromEnv() *config.Config {
+	cfg := config.NewConfig()
 	viper.AutomaticEnv()
 
 	_ = viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
@@ -37,23 +38,28 @@ func loadFromEnv(cfg *config.Config) {
 	cfg.KeepAlive = viper.GetBool("keep-alive")
 
 	if viper.GetString("file") != "" {
+		// remove tmp dir before overwriting to avoid stale tmp files.
+		if err := os.Remove(cfg.File); err != nil {
+			golog.Fatal(err)
+		}
+
 		cfg.File = viper.GetString("file")
 	}
+
+	return cfg
 }
 
 // NewService returns a configured service with a controller and a default logger.
 // When used as a library, flags are not parsed, and in order to avoid introducing a global state with init functions
-// calls are done explicitly to loadFromEnv(*config.Config).\
+// calls are done explicitly to loadFromEnv().
 // Since this is the public constructor, options need to be added, at the moment only logging options
 // are supported in order to match the running OwnCloud services structured log.
 func NewService(options ...log.Option) *Service {
-	cfg := config.NewConfig()
-	loadFromEnv(cfg)
+	cfg := loadFromEnv()
 
 	return &Service{
 		Controller: controller.NewController(
-			controller.WithRestart(cfg.KeepAlive),
-			controller.WithFile(cfg.File),
+			controller.WithConfig(cfg),
 		),
 		Log:        log.NewLogger(options...),
 	}

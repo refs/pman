@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -12,8 +11,11 @@ import (
 )
 
 type janitor struct {
+	// shared mutex with the Controller instance.
 	m *sync.RWMutex
+	// file containing the location of the runtime service | process registry.
 	db string
+	// interval at which db is cleared.
 	interval time.Duration
 }
 
@@ -47,7 +49,7 @@ func cleanup(f string, m *sync.RWMutex) {
 		// On unix like systems (linux, freebsd, etc) os.FindProcess will never return an error
 		if p, err := os.FindProcess(pid); err == nil {
 			if err := p.Signal(syscall.Signal(0)); err != nil {
-				fmt.Printf("\ndeleting orphaned process: %v\n", pid)
+				// TODO(refs) use configured logger and log cleaning info
 				delete(entries, name)
 			}
 		}

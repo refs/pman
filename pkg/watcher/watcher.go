@@ -38,7 +38,7 @@ func (w *Watcher) Follow(pe process.ProcEntry, followerChan chan process.ProcEnt
 	go func() {
 		select {
 		case status := <-state:
-			w.log.Info().Str("package", "watcher").Msgf("%v exited with code: %v", pe.Extension, status.ExitCode())
+			w.log.Info().Str("package", "watcher").Msgf("%v exited with code: %v", pe.Extension, status.ExitCode()) // return -1 if the process hasn't started.
 			if restart {
 				followerChan <- pe
 			}

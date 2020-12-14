@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/refs/pman/pkg/config"
 	"io/ioutil"
@@ -27,9 +26,6 @@ type Controller struct {
 	options Options
 	log zerolog.Logger
 	cfg *config.Config
-
-	// File refers to the Controller database, where we keep the controller's status. It formats as json.
-	File string
 	// Bin is the OCIS single binary name.
 	Bin string
 	// BinPath is the OCIS single binary path withing the host machine.
@@ -38,8 +34,6 @@ type Controller struct {
 	// Terminated facilitates communication from Watcher <-> Controller. Writes to this
 	// channel WILL always attempt to restart the crashed process.
 	Terminated chan process.ProcEntry
-	// restarted keeps an account of how many times a process has been restarted.
-	restarted map[string]int
 }
 
 var (
@@ -61,10 +55,8 @@ func NewController(o ...Option) Controller {
 			log.WithPretty(true),
 		),
 		cfg: opts.Config,
-		File: opts.File,
 		Bin:  "ocis",
 		Terminated: make(chan process.ProcEntry),
-		restarted: map[string]int{},
 	}
 
 	if opts.Bin != "" {
@@ -80,31 +72,16 @@ func NewController(o ...Option) Controller {
 
 	c.BinPath = path
 
-	if _, err := os.Stat(opts.File); err != nil {
+	if _, err := os.Stat(opts.Config.File); err != nil {
 		c.log.Debug().Str("package", "controller").Msgf("setting up db")
-		ioutil.WriteFile(opts.File, []byte("{}"), 0644)
+		ioutil.WriteFile(opts.Config.File, []byte("{}"), 0644)
 	}
 
 	return c
 }
 
-// write a new entry to File.
-func (c *Controller) write(pe process.ProcEntry) error {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	entries, err := loadDB(c.File)
-	if err != nil {
-		return err
-	}
-
-	entries[pe.Extension] = pe.Pid
-	return c.writeEntries(entries)
-}
-
 // Start and watches a process.
 func (c *Controller) Start(pe process.ProcEntry) error {
-	// TODO add support for the same process running on different ports. a.k.a db entries as []string.
 	var err error
 	var pid int
 
@@ -125,12 +102,12 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 		return err
 	}
 
-	w.Follow(pe, c.Terminated, c.options.Restart)
+	w.Follow(pe, c.Terminated, c.options.Config.KeepAlive)
 
 	once.Do(func() {
 		j := janitor{
 			c.m,
-			c.File,
+			c.cfg.File,
 			time.Second,
 		}
 
@@ -141,22 +118,8 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 	return nil
 }
 
-// detach will try to restart processes on failures.
-func detach(c *Controller) {
-	func(c *Controller) {
-		for {
-			select {
-			case proc := <- c.Terminated:
-				if err := c.Start(proc); err != nil {
-					c.log.Err(err)
-				}
-			}
-		}
-	}(c)
-}
-
 // Kill a managed process.
-// TODO(refs) this interface MUST algo work with PID
+// TODO(refs) this interface MUST also work with PIDs.
 // Should a process managed by the runtime be allowed to be killed if the runtime is configured not to?
 func (c *Controller) Kill(ext *string) error {
 	pid, err := c.storedPID(*ext)
@@ -178,7 +141,7 @@ func (c *Controller) Kill(ext *string) error {
 // Shutdown a running runtime.
 func (c *Controller) Shutdown(ch chan struct{}) error {
 	c.m.Lock()
-	entries, err := loadDB(c.File)
+	entries, err := loadDB(c.cfg.File)
 	if err != nil {
 		return err
 	}
@@ -206,9 +169,9 @@ func (c *Controller) List() string {
 	table.SetHeader([]string{"Extension", "PID"})
 
 	c.m.Lock()
-	entries, err := loadDB(c.File)
+	entries, err := loadDB(c.cfg.File)
 	if err != nil {
-		c.log.Err(err).Msg(fmt.Sprintf("error loading file: %s", c.File))
+		c.log.Err(err).Msg(fmt.Sprintf("error loading file: %s", c.cfg.File))
 	}
 	c.m.Unlock()
 
@@ -231,70 +194,5 @@ func (c *Controller) List() string {
 func (c *Controller) Reset() error {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	return ioutil.WriteFile(c.File, []byte("{}"), 0644)
-}
-
-// delete removes a managed process from db.
-func (c *Controller) delete(name string) error {
-	c.m.Lock()
-	entries, err := loadDB(c.File)
-	if err != nil {
-		return err
-	}
-	c.m.Unlock()
-
-	_, ok := entries[name]
-	if !ok {
-		return fmt.Errorf("pid not found for extension: %v", name)
-	}
-
-	delete(entries, name)
-
-	c.m.RLock()
-	defer c.m.RUnlock()
-	return c.writeEntries(entries)
-}
-
-// storedPID reads from controller's db for the extension name, and returns it's pid for the running process.
-func (c *Controller) storedPID(name string) (int, error) {
-	c.m.Lock()
-	entries, err := loadDB(c.File)
-	if err != nil {
-		return 0, err
-	}
-	c.m.Unlock()
-
-	pid, ok := entries[name]
-	if !ok {
-		return 0, nil
-	}
-
-	return pid, nil
-}
-
-func (c *Controller) writeEntries(e map[string]int) error {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	bytes, err := json.Marshal(e)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(c.File, bytes, 0644)
-}
-
-// loadDB loads pman db file from disk.
-func loadDB(file string) (map[string]int, error) {
-	contents, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	entries := make(map[string]int)
-	if err := json.Unmarshal(contents, &entries); err != nil {
-		return nil, err
-	}
-
-	return entries, nil
+	return os.Remove(c.cfg.File)
 }
