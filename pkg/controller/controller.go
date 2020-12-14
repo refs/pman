@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/refs/pman/pkg/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
@@ -24,6 +26,8 @@ type Controller struct {
 	m *sync.RWMutex
 	options Options
 	log zerolog.Logger
+	cfg *config.Config
+
 	// File refers to the Controller database, where we keep the controller's status. It formats as json.
 	File string
 	// Bin is the OCIS single binary name.
@@ -31,8 +35,8 @@ type Controller struct {
 	// BinPath is the OCIS single binary path withing the host machine.
 	// The Controller needs to know the binary location in order to spawn new extensions.
 	BinPath string
-	// Terminated is a bidirectional channel that tallows communication from Watcher <-> Controller. Writes to this
-	// channel will attempt to restart the crashed process.
+	// Terminated facilitates communication from Watcher <-> Controller. Writes to this
+	// channel WILL always attempt to restart the crashed process.
 	Terminated chan process.ProcEntry
 	// restarted keeps an account of how many times a process has been restarted.
 	restarted map[string]int
@@ -51,15 +55,16 @@ func NewController(o ...Option) Controller {
 	}
 
 	c := Controller{
-		Bin:  "ocis",
-		File: opts.File,
-		Terminated: make(chan process.ProcEntry),
+		m: &sync.RWMutex{},
+		options: *opts,
 		log: log.NewLogger(
 			log.WithPretty(true),
 		),
-		options: *opts,
+		cfg: opts.Config,
+		File: opts.File,
+		Bin:  "ocis",
+		Terminated: make(chan process.ProcEntry),
 		restarted: map[string]int{},
-		m: &sync.RWMutex{},
 	}
 
 	if opts.Bin != "" {
@@ -123,6 +128,13 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 	w.Follow(pe, c.Terminated, c.options.Restart)
 
 	once.Do(func() {
+		j := janitor{
+			c.m,
+			c.File,
+			time.Second,
+		}
+
+		go j.run()
 		go detach(c)
 	})
 
@@ -144,6 +156,8 @@ func detach(c *Controller) {
 }
 
 // Kill a managed process.
+// TODO(refs) this interface MUST algo work with PID
+// Should a process managed by the runtime be allowed to be killed if the runtime is configured not to?
 func (c *Controller) Kill(ext *string) error {
 	pid, err := c.storedPID(*ext)
 	if err != nil {

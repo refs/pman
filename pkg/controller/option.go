@@ -1,11 +1,14 @@
 package controller
 
+import "github.com/refs/pman/pkg/config"
+
 // Options are the configurable options for a Controller.
 type Options struct {
 	Bin  string
 	File string
 	Restart bool
 	Grace int
+	Config *config.Config
 }
 
 // Option represents an option.
@@ -43,3 +46,11 @@ func WithGrace(g int) Option {
 		o.Grace = g
 	}
 }
+
+// WithConfig sets Controller config.
+func WithConfig(cfg *config.Config) Option {
+	return func(o *Options) {
+		o.Config = cfg
+	}
+}
+
