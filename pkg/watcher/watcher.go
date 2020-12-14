@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Watcher watches a process.
+// Watcher watches a process and sends messages using channels.
 type Watcher struct {
 	log zerolog.Logger
 }
