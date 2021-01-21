@@ -22,10 +22,10 @@ import (
 
 // Controller writes the current managed processes onto a file, or any ReadWrite.
 type Controller struct {
-	m *sync.RWMutex
+	m       *sync.RWMutex
 	options Options
-	log zerolog.Logger
-	cfg *config.Config
+	log     zerolog.Logger
+	Config  *config.Config
 	// Bin is the OCIS single binary name.
 	Bin string
 	// BinPath is the OCIS single binary path withing the host machine.
@@ -54,8 +54,8 @@ func NewController(o ...Option) Controller {
 		log: log.NewLogger(
 			log.WithPretty(true),
 		),
-		cfg: opts.Config,
-		Bin:  "ocis",
+		Config:     opts.Config,
+		Bin:        "ocis",
 		Terminated: make(chan process.ProcEntry),
 	}
 
@@ -106,7 +106,7 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 	once.Do(func() {
 		j := janitor{
 			c.m,
-			c.cfg.File,
+			c.Config.File,
 			time.Second,
 		}
 
@@ -146,7 +146,7 @@ func (c *Controller) Shutdown(ch chan struct{}) error {
 	// be ensured with the combination of a set of extensions that must run and a wait group.
 	time.Sleep(1 * time.Second)
 
-	entries, err := loadDB(c.cfg.File)
+	entries, err := loadDB(c.Config.File)
 	if err != nil {
 		return err
 	}
@@ -174,9 +174,9 @@ func (c *Controller) List() string {
 	table.SetHeader([]string{"Extension", "PID"})
 
 	c.m.Lock()
-	entries, err := loadDB(c.cfg.File)
+	entries, err := loadDB(c.Config.File)
 	if err != nil {
-		c.log.Err(err).Msg(fmt.Sprintf("error loading file: %s", c.cfg.File))
+		c.log.Err(err).Msg(fmt.Sprintf("error loading file: %s", c.Config.File))
 	}
 	c.m.Unlock()
 
@@ -199,5 +199,5 @@ func (c *Controller) List() string {
 func (c *Controller) Reset() error {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	return os.Remove(c.cfg.File)
+	return os.Remove(c.Config.File)
 }

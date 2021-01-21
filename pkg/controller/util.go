@@ -39,7 +39,7 @@ func loadDB(file string) (map[string]int, error) {
 // storedPID retrieves a managed process PID by its name.
 func (c *Controller) storedPID(name string) (int, error) {
 	c.m.Lock()
-	entries, err := loadDB(c.cfg.File)
+	entries, err := loadDB(c.Config.File)
 	if err != nil {
 		return 0, err
 	}
@@ -60,7 +60,7 @@ func (c *Controller) write(pe process.ProcEntry) error {
 	c.m.RLock()
 	defer c.m.RUnlock()
 
-	entries, err := loadDB(c.cfg.File)
+	entries, err := loadDB(c.Config.File)
 	if err != nil {
 		return err
 	}
@@ -72,13 +72,13 @@ func (c *Controller) write(pe process.ProcEntry) error {
 		return err
 	}
 
-	return ioutil.WriteFile(c.cfg.File, bytes, 0644)
+	return ioutil.WriteFile(c.Config.File, bytes, 0644)
 }
 
 // delete removes a managed process from db.
 func (c *Controller) delete(name string) error {
 	c.m.Lock()
-	entries, err := loadDB(c.cfg.File)
+	entries, err := loadDB(c.Config.File)
 	if err != nil {
 		return err
 	}
@@ -96,5 +96,5 @@ func (c *Controller) delete(name string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(c.cfg.File, bytes, 0644)
+	return ioutil.WriteFile(c.Config.File, bytes, 0644)
 }

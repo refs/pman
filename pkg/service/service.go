@@ -40,8 +40,9 @@ func loadFromEnv() *config.Config {
 	cfg := config.NewConfig()
 	viper.AutomaticEnv()
 
-	_ = viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
-	_ = viper.BindEnv("file", "RUNTIME_DB_FILE")
+	viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
+	viper.BindEnv("file", "RUNTIME_DB_FILE")
+	viper.BindEnv("port", "RUNTIME_PORT")
 
 	cfg.KeepAlive = viper.GetBool("keep-alive")
 
@@ -52,6 +53,10 @@ func loadFromEnv() *config.Config {
 		}
 
 		cfg.File = viper.GetString("file")
+	}
+
+	if viper.GetString("port") != "" {
+		cfg.Port = viper.GetString("port")
 	}
 
 	return cfg
@@ -114,15 +119,17 @@ func Start() error {
 
 	signal.Notify(halt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 
-	l, err := net.Listen("tcp", ":10666")
+	l, err := net.Listen("tcp", fmt.Sprintf("%v:%v", s.Controller.Config.Hostname, s.Controller.Config.Port))
 	if err != nil {
 		s.Log.Fatal().Err(err)
 	}
 
+	// handle panic within the Service scope.
 	defer func() {
 		if r := recover(); r != nil {
 			reason := strings.Builder{}
-			if _, err := net.Dial("localhost", "10666"); err != nil {
+			// small root cause analysis
+			if _, err := net.Dial("localhost", s.Controller.Config.Port); err != nil {
 				reason.WriteString("runtime address already in use")
 			}
 
