@@ -1,12 +1,11 @@
 package watcher
 
 import (
-	golog "log"
-	"os"
-
 	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
 	"github.com/rs/zerolog"
+	golog "log"
+	"os"
 )
 
 // Watcher watches a process and sends messages using channels.

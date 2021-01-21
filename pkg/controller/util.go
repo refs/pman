@@ -2,9 +2,9 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/refs/pman/pkg/process"
 	"io/ioutil"
-	"fmt"
 )
 
 // detach will try to restart processes on failures.
@@ -21,7 +21,7 @@ func detach(c *Controller) {
 	}(c)
 }
 
-// loadDB loads pman db file from disk.
+// loadDB loads pman db file from disk. It is not thread safe, and callers must synchronize access when calling.
 func loadDB(file string) (map[string]int, error) {
 	contents, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -34,6 +34,45 @@ func loadDB(file string) (map[string]int, error) {
 	}
 
 	return entries, nil
+}
+
+// storedPID retrieves a managed process PID by its name.
+func (c *Controller) storedPID(name string) (int, error) {
+	c.m.Lock()
+	entries, err := loadDB(c.cfg.File)
+	if err != nil {
+		return 0, err
+	}
+	c.m.Unlock()
+
+	pid, ok := entries[name]
+	if !ok {
+		return 0, nil
+	}
+
+	return pid, nil
+}
+
+// === DB Lifecycle Functions ===
+
+// write a new entry to File.
+func (c *Controller) write(pe process.ProcEntry) error {
+	c.m.RLock()
+	defer c.m.RUnlock()
+
+	entries, err := loadDB(c.cfg.File)
+	if err != nil {
+		return err
+	}
+
+	entries[pe.Extension] = pe.Pid
+
+	bytes, err := json.Marshal(entries)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(c.cfg.File, bytes, 0644)
 }
 
 // delete removes a managed process from db.
@@ -52,50 +91,10 @@ func (c *Controller) delete(name string) error {
 
 	delete(entries, name)
 
-	c.m.RLock()
-	defer c.m.RUnlock()
-	return c.writeEntries(entries)
-}
-
-// storedPID reads from controller's db for the extension name, and returns it's pid for the running process.
-func (c *Controller) storedPID(name string) (int, error) {
-	c.m.Lock()
-	entries, err := loadDB(c.cfg.File)
-	if err != nil {
-		return 0, err
-	}
-	c.m.Unlock()
-
-	pid, ok := entries[name]
-	if !ok {
-		return 0, nil
-	}
-
-	return pid, nil
-}
-
-func (c *Controller) writeEntries(e map[string]int) error {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	bytes, err := json.Marshal(e)
+	bytes, err := json.Marshal(entries)
 	if err != nil {
 		return err
 	}
 
 	return ioutil.WriteFile(c.cfg.File, bytes, 0644)
-}
-
-// write a new entry to File.
-func (c *Controller) write(pe process.ProcEntry) error {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	entries, err := loadDB(c.cfg.File)
-	if err != nil {
-		return err
-	}
-
-	entries[pe.Extension] = pe.Pid
-	return c.writeEntries(entries)
 }

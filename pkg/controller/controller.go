@@ -101,7 +101,6 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 	if err := c.write(pe); err != nil {
 		return err
 	}
-
 	w.Follow(pe, c.Terminated, c.options.Config.KeepAlive)
 
 	once.Do(func() {
@@ -114,7 +113,6 @@ func (c *Controller) Start(pe process.ProcEntry) error {
 		go j.run()
 		go detach(c)
 	})
-
 	return nil
 }
 
@@ -140,17 +138,25 @@ func (c *Controller) Kill(ext *string) error {
 
 // Shutdown a running runtime.
 func (c *Controller) Shutdown(ch chan struct{}) error {
-	c.m.Lock()
+	// We cannot be sure when was the last write before a shutdown routine begins without a plan. "Plan" in the sense of
+	// an argument with every extension that must be started. This way we could block access to the io.Writer the "db"
+	// uses, and either halt and prevent main from forking more children, or let them all run and once the reader gets
+	// freed, start shutting them all down, a.k.a reverse the process. For the time being a simple Sleep would ensure
+	// that all children are spawned and the last writer has been executed. Alternatively proper synchronization can
+	// be ensured with the combination of a set of extensions that must run and a wait group.
+	time.Sleep(1 * time.Second)
+
 	entries, err := loadDB(c.cfg.File)
 	if err != nil {
 		return err
 	}
-	c.m.Unlock()
 
 	for cmd, pid := range entries {
 		c.log.Info().Str("package", "watcher").Msgf("gracefully terminating %v", cmd)
 		p, _ := os.FindProcess(pid)
-		p.Kill()
+		if err := p.Kill(); err != nil {
+			return err
+		}
 	}
 
 	if err := c.Reset(); err != nil {
@@ -158,7 +164,6 @@ func (c *Controller) Shutdown(ch chan struct{}) error {
 	}
 
 	ch <- struct{}{}
-
 	return nil
 }
 

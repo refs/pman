@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/refs/pman/pkg/config"
 	"github.com/refs/pman/pkg/controller"
 	"github.com/refs/pman/pkg/log"
@@ -13,7 +14,14 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+)
+
+var (
+	halt = make(chan os.Signal, 1)
+	done = make(chan struct{}, 1)
+	finished = make(chan struct{}, 1)
 )
 
 // Service represents a RPC service.
@@ -67,6 +75,7 @@ func NewService(options ...log.Option) *Service {
 
 // Start indicates the Service Controller to start a new supervised service as an OS thread.
 func (s *Service) Start(args process.ProcEntry, reply *int) error {
+	s.Log.Info().Str("service", args.Extension).Msgf("%v", "started")
 	if err := s.Controller.Start(args); err != nil {
 		*reply = 1
 		return err
@@ -103,22 +112,44 @@ func Start() error {
 	}
 	rpc.HandleHTTP()
 
-	sigs := make(chan os.Signal, 1)
-	done := make(chan struct{}, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-
-	// shutdown controller if interrupted.
-	go func(c controller.Controller) {
-		rec := <-sigs
-		s.Log.Debug().Str("service", "runtime service").Msgf("signal [%v] received. gracefully terminating children", rec.String())
-		c.Shutdown(done)
-		os.Exit(0)
-	}(s.Controller)
+	signal.Notify(halt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 
 	l, err := net.Listen("tcp", ":10666")
 	if err != nil {
 		s.Log.Fatal().Err(err)
 	}
-	s.Log.Info().Str("service", "runtime").Msg("runtime ready on localhost:10666")
-	return http.Serve(l, nil)
+
+	defer func() {
+		if r := recover(); r != nil {
+			reason := strings.Builder{}
+			if _, err := net.Dial("localhost", "10666"); err != nil {
+				reason.WriteString("runtime address already in use")
+			}
+
+			fmt.Println(reason.String())
+		}
+	}()
+
+	go func() error {
+		return http.Serve(l, nil)
+	}()
+
+	// block until all processes end
+	for {
+		select {
+			case _ = <- finished:
+				println("done!")
+				return nil
+			case _ = <- halt:
+				s.Log.Debug().
+					Str("service", "runtime service").
+					Msgf("terminating with signal: %v", s)
+				if err := s.Controller.Shutdown(done); err != nil {
+					s.Log.Err(err)
+				}
+				finished <- struct{}{}
+				os.Exit(0)
+				return nil
+		}
+	}
 }
