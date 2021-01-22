@@ -2,6 +2,7 @@ package storage
 
 import "github.com/refs/pman/pkg/process"
 
+// Entries is a tuple of <extension:pid>
 type Entries map[string]int
 
 // Storage defines a basic persistence interface layer.
