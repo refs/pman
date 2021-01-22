@@ -25,7 +25,7 @@ type Controller struct {
 	log     zerolog.Logger
 	Config  *config.Config
 
-	Store *storage.Map
+	Store storage.Storage
 
 	// Bin is the OCIS single binary name.
 	Bin string

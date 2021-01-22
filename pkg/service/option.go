@@ -1,5 +1,6 @@
 package service
 
+// Log configures a structure logger.
 type Log struct {
 	Pretty bool
 }

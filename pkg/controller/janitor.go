@@ -13,7 +13,7 @@ type janitor struct {
 	// interval at which db is cleared.
 	interval time.Duration
 
-	store *storage.Map
+	store storage.Storage
 }
 
 func (j *janitor) run() {

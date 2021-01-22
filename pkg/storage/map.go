@@ -6,11 +6,13 @@ import (
 	"sync"
 )
 
+// Map synchronizes access to extension+pid tuples.
 type Map struct {
 	c *sync.Map
 }
 
-func NewMapStorage() *Map {
+// NewMapStorage initializes a new Storage.
+func NewMapStorage() Storage {
 	return &Map{
 		c: &sync.Map{},
 	}
