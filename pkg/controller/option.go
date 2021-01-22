@@ -1,12 +1,16 @@
 package controller
 
-import "github.com/refs/pman/pkg/config"
+import (
+	"github.com/refs/pman/pkg/config"
+	"github.com/rs/zerolog"
+)
 
 // Options are the configurable options for a Controller.
 type Options struct {
-	Bin  string
+	Bin     string
 	Restart bool
-	Config *config.Config
+	Config  *config.Config
+	Log     *zerolog.Logger
 }
 
 // Option represents an option.
@@ -21,5 +25,12 @@ func NewOptions() Options {
 func WithConfig(cfg *config.Config) Option {
 	return func(o *Options) {
 		o.Config = cfg
+	}
+}
+
+// WithLog sets Controller config.
+func WithLog(l *zerolog.Logger) Option {
+	return func(o *Options) {
+		o.Log = l
 	}
 }

@@ -8,30 +8,27 @@ import (
 	"github.com/refs/pman/pkg/process"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
-	golog "log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 )
 
 var (
 	halt = make(chan os.Signal, 1)
 	done = make(chan struct{}, 1)
-	finished = make(chan struct{}, 1)
 )
 
 // Service represents a RPC service.
-// The controller manager the service's state. When an action on a service is required,
-// this will read the PID from the DB file for the given extensions and act upon its PID.
-// This package would act as a root command of sorts, since PMAN having 2 operational modes, as a
-// cli tool and a library.
 type Service struct {
 	Controller controller.Controller
 	Log        zerolog.Logger
+	wg         *sync.WaitGroup
+	done       bool
 }
 
 // loadFromEnv would set cmd global variables. This is a workaround spf13/viper since pman used as a library does not
@@ -41,19 +38,9 @@ func loadFromEnv() *config.Config {
 	viper.AutomaticEnv()
 
 	viper.BindEnv("keep-alive", "RUNTIME_KEEP_ALIVE")
-	viper.BindEnv("file", "RUNTIME_DB_FILE")
 	viper.BindEnv("port", "RUNTIME_PORT")
 
 	cfg.KeepAlive = viper.GetBool("keep-alive")
-
-	if viper.GetString("file") != "" {
-		// remove tmp dir before overwriting to avoid stale tmp files.
-		if err := os.Remove(cfg.File); err != nil {
-			golog.Fatal(err)
-		}
-
-		cfg.File = viper.GetString("file")
-	}
 
 	if viper.GetString("port") != "" {
 		cfg.Port = viper.GetString("port")
@@ -67,50 +54,31 @@ func loadFromEnv() *config.Config {
 // calls are done explicitly to loadFromEnv().
 // Since this is the public constructor, options need to be added, at the moment only logging options
 // are supported in order to match the running OwnCloud services structured log.
-func NewService(options ...log.Option) *Service {
+func NewService(options ...Option) *Service {
+	opts := NewOptions()
+
+	for _, f := range options {
+		f(opts)
+	}
+
 	cfg := loadFromEnv()
+	l := log.NewLogger(
+		log.WithPretty(opts.Log.Pretty),
+	)
 
 	return &Service{
+		wg:  &sync.WaitGroup{},
+		Log: l,
 		Controller: controller.NewController(
 			controller.WithConfig(cfg),
+			controller.WithLog(&l),
 		),
-		Log:        log.NewLogger(options...),
 	}
 }
 
-// Start indicates the Service Controller to start a new supervised service as an OS thread.
-func (s *Service) Start(args process.ProcEntry, reply *int) error {
-	s.Log.Info().Str("service", args.Extension).Msgf("%v", "started")
-	if err := s.Controller.Start(args); err != nil {
-		*reply = 1
-		return err
-	}
-
-	*reply = 0
-	return nil
-}
-
-// List running processes for the Service Controller.
-func (s *Service) List(args struct{}, reply *string) error {
-	*reply = s.Controller.List()
-	return nil
-}
-
-// Kill a supervised process by subcommand name.
-// TODO this API is rather simple and prone to failure. Terminate a process by PID MUST be allowed.
-func (s *Service) Kill(args *string, reply *int) error {
-	if err := s.Controller.Kill(args); err != nil {
-		*reply = 1
-		return err
-	}
-
-	*reply = 0
-	return nil
-}
-
-// Start an rpc service with a registered configurable Controller process.
-func Start() error {
-	s := NewService(log.WithPretty(true))
+// Start an rpc service.
+func Start(o ...Option) error {
+	s := NewService(o...)
 
 	if err := rpc.Register(s); err != nil {
 		s.Log.Fatal().Err(err)
@@ -128,7 +96,6 @@ func Start() error {
 	defer func() {
 		if r := recover(); r != nil {
 			reason := strings.Builder{}
-			// small root cause analysis
 			if _, err := net.Dial("localhost", s.Controller.Config.Port); err != nil {
 				reason.WriteString("runtime address already in use")
 			}
@@ -137,26 +104,60 @@ func Start() error {
 		}
 	}()
 
-	go func() error {
-		return http.Serve(l, nil)
-	}()
+	go trap(s)
 
-	// block until all processes end
-	for {
-		select {
-			case _ = <- finished:
-				println("done!")
-				return nil
-			case _ = <- halt:
-				s.Log.Debug().
-					Str("service", "runtime service").
-					Msgf("terminating with signal: %v", s)
-				if err := s.Controller.Shutdown(done); err != nil {
-					s.Log.Err(err)
-				}
-				finished <- struct{}{}
-				os.Exit(0)
-				return nil
+	return http.Serve(l, nil)
+}
+
+// Start indicates the Service Controller to start a new supervised service as an OS thread.
+func (s *Service) Start(args process.ProcEntry, reply *int) error {
+	if !s.done {
+		s.wg.Add(1)
+		s.Log.Info().Str("service", args.Extension).Msgf("%v", "started")
+		if err := s.Controller.Start(args); err != nil {
+			*reply = 1
+			return err
 		}
+
+		*reply = 0
+		s.wg.Done()
 	}
+
+	return nil
+}
+
+// List running processes for the Service Controller.
+func (s *Service) List(args struct{}, reply *string) error {
+	*reply = s.Controller.List()
+	return nil
+}
+
+// Kill a supervised process by subcommand name.
+func (s *Service) Kill(args *string, reply *int) error {
+	pe := process.ProcEntry{
+		Extension: *args,
+	}
+	if err := s.Controller.Kill(pe); err != nil {
+		*reply = 1
+		return err
+	}
+
+	*reply = 0
+	return nil
+}
+
+// trap blocks on halt channel. When the runtime is interrupted it
+// signals the controller to stop any supervised process.
+func trap(s *Service) {
+	<-halt
+	s.done = true
+	s.wg.Wait()
+	s.Log.Debug().
+		Str("service", "runtime service").
+		Msgf("terminating with signal: %v", s)
+	if err := s.Controller.Shutdown(done); err != nil {
+		s.Log.Err(err)
+	}
+	close(done)
+	os.Exit(0)
 }
