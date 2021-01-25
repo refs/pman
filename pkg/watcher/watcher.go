@@ -1,12 +1,11 @@
 package watcher
 
 import (
-	golog "log"
-	"os"
-
 	"github.com/refs/pman/pkg/log"
 	"github.com/refs/pman/pkg/process"
 	"github.com/rs/zerolog"
+	golog "log"
+	"os"
 )
 
 // Watcher watches a process and sends messages using channels.
@@ -38,7 +37,7 @@ func (w *Watcher) Follow(pe process.ProcEntry, followerChan chan process.ProcEnt
 	go func() {
 		select {
 		case status := <-state:
-			w.log.Info().Str("package", "watcher").Msgf("%v exited with code: %v", pe.Extension, status.ExitCode()) // return -1 if the process hasn't started.
+			w.log.Info().Str("package", "watcher").Msgf("%v exited with: %v", pe.Extension, status)
 			if restart {
 				followerChan <- pe
 			}

@@ -1,22 +1,19 @@
 package controller
 
 import (
-	"encoding/json"
-	"io/ioutil"
+	"github.com/refs/pman/pkg/process"
+	"github.com/refs/pman/pkg/storage"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 )
 
 type janitor struct {
-	// shared mutex with the Controller instance.
-	m *sync.RWMutex
-	// file containing the location of the runtime service | process registry.
-	db string
 	// interval at which db is cleared.
 	interval time.Duration
+
+	store storage.Storage
 }
 
 func (j *janitor) run() {
@@ -29,31 +26,23 @@ func (j *janitor) run() {
 		case <-work:
 			return
 		case <-ticker.C:
-			cleanup(j.db, j.m)
+			j.cleanup()
 		}
 	}
 }
 
 // cleanup removes orphaned extension + pid that were killed via SIGKILL given the nature of is being un-catchable,
 // the only way to update pman's database is by polling.
-func cleanup(f string, m *sync.RWMutex) {
-	m.Lock()
-	entries, _ := loadDB(f)
-	m.Unlock()
-
-	m.RLock()
-	for name, pid := range entries {
+func (j *janitor) cleanup() {
+	for name, pid := range j.store.LoadAll() {
 		// On unix like systems (linux, freebsd, etc) os.FindProcess will never return an error
 		if p, err := os.FindProcess(pid); err == nil {
 			if err := p.Signal(syscall.Signal(0)); err != nil {
-				// TODO(refs) use configured logger and log cleaning info
-				delete(entries, name)
+				j.store.Delete(process.ProcEntry{
+					Pid:       pid,
+					Extension: name,
+				})
 			}
 		}
 	}
-
-	bytes, _ := json.Marshal(entries)
-
-	_ = ioutil.WriteFile(f, bytes, 0644)
-	m.RUnlock()
 }
